@@ -139,12 +139,23 @@ button:focus-visible,input:focus-visible,select:focus-visible,td:focus-visible{o
 .result{display:flex;flex-direction:column;gap:10px;border-top:5px solid var(--orange)}
 .big{font-family:var(--display);font-weight:900;font-size:4.4rem;line-height:1;color:var(--num);font-variant-numeric:tabular-nums}
 .big .deg{font-size:2.6rem;color:var(--orange)}
-.extra{display:flex;flex-wrap:wrap;gap:6px}
-.extra span{font-size:.82rem;padding:4px 10px;border-radius:99px;background:var(--soft);color:var(--muted)}
-.extra b{color:var(--fg);font-family:var(--mono);font-weight:600}
+.dm{font-family:var(--mono);font-size:.92rem;color:var(--muted);margin-top:-4px}
+.dm b{color:var(--fg);font-weight:600}
 .msg{color:var(--err);font-size:.92rem;margin:0;font-weight:600}
-.view{border-radius:12px;overflow:hidden;background:#1e2124;height:320px}
+.view-wrap{position:relative}
+.vtabs{position:absolute;top:10px;right:10px;display:flex;gap:4px;background:rgba(30,33,36,.92);padding:4px;border-radius:10px;border:1px solid var(--line);z-index:2}
+.vtabs button{font:inherit;font-family:var(--display);font-weight:800;font-size:.9rem;letter-spacing:.04em;text-transform:uppercase;padding:4px 10px;border-radius:7px;border:0;background:transparent;color:var(--muted);cursor:pointer}
+.vtabs button[aria-pressed="true"]{background:var(--orange);color:#fff}
+.view{border-radius:12px;overflow:hidden;background:#1e2124;height:340px}
 .view svg{display:block;width:100%;height:100%}
+.info{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.info:empty{display:none}
+.ic{background:var(--soft);border-radius:10px;padding:10px 12px;border-left:4px solid var(--c)}
+.ic .k{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;font-weight:700;color:var(--c)}
+.ic .v{font-family:var(--mono);font-weight:600;font-size:1.15rem;color:var(--fg);line-height:1.3}
+.ic .s{font-size:.8rem;color:var(--muted);line-height:1.45}
+.ic .s b{color:var(--fg);font-family:var(--mono);font-weight:600}
+@media (max-width:360px){.info{grid-template-columns:1fr}}
 
 .fields{display:flex;flex-direction:column;gap:14px}
 .pick{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px;border-radius:12px;background:var(--soft)}
@@ -224,8 +235,15 @@ h2{font-family:var(--display);font-weight:800;font-size:1.6rem;margin:0;text-tra
       <div class="label">Ângulo da curva</div>
       <div class="big" id="ang">90,0<span class="deg">°</span></div>
       <p class="msg" id="msg" hidden></p>
-      <div class="extra" id="extra"></div>
-      <div class="view" id="view"></div>
+      <div class="dm" id="dm"></div>
+      <div class="view-wrap">
+        <div class="vtabs" role="group" aria-label="Tipo de desenho">
+          <button type="button" id="v-3d" aria-pressed="true">3D</button>
+          <button type="button" id="v-tec" aria-pressed="false">Técnico</button>
+        </div>
+        <div class="view" id="view"></div>
+      </div>
+      <div class="info" id="extra"></div>
     </div>
 
     <div class="card fields">
@@ -377,7 +395,7 @@ $("sel-tipo").addEventListener("change",aplicaTubo);
 function update(){
   const v={}; FIELDS.forEach(f=>v[f.id]=parseFloat($("in-"+f.id).value.replace(",",".")));
   const outro=fonte==="cf"?"cc":"cf", Ro=v.r+v.d/2, Ri=v.r-v.d/2;
-  const erro=t=>{$("ang").innerHTML=`—<span class="deg">°</span>`;$("msg").textContent=t;$("msg").hidden=false;$("extra").innerHTML="";};
+  const erro=t=>{$("ang").innerHTML=`—<span class="deg">°</span>`;$("msg").textContent=t;$("msg").hidden=false;$("extra").innerHTML="";$("dm").innerHTML="";};
   if(!(v.r>0&&v.d>0)) return erro("Preencha o raio e o diâmetro.");
   if(Ri<=0) return erro("O raio de centro tem que ser maior que a metade do diâmetro.");
   if(!(v[fonte]>0)){$("in-"+outro).value="";return erro("Preencha a medida da frente ou das costas.");}
@@ -387,58 +405,117 @@ function update(){
   $("msg").hidden=true;
   const deg=t*180/Math.PI;
   $("ang").innerHTML=`${fmt(deg)}<span class="deg">°</span>`;
-  $("extra").innerHTML=[["Costas",Ro*t],["Frente",Ri*t],["Reta costas",2*Ro*Math.sin(t/2)],["Reta frente",2*Ri*Math.sin(t/2)],["Raio costas",Ro],["Raio frente",Ri],["Abertura",Math.abs(180-deg),"°"]]
-    .map(([k,x,u])=>`<span>${k}: <b>${fmt(x)}${u||""}</b></span>`).join("");
+  const ch=r=>2*r*Math.sin(t/2);
+  const gm=x=>{let g=Math.floor(x),m=Math.round((x-g)*60);if(m===60){g++;m=0;}return `${g}° ${String(m).padStart(2,"0")}′`;};
+  $("dm").innerHTML=`<b>${gm(deg)}</b> · abertura ${fmt(Math.abs(180-deg))}°`;
+  const card=(c,k,v,s,w)=>`<div class="ic${w?" wide":""}" style="--c:${c}"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
+  $("extra").innerHTML=
+    card("var(--yellow)","Costas (fora)",fmt(Ro*t),`reta <b>${fmt(ch(Ro))}</b> · raio <b>${fmt(Ro)}</b>`)+
+    card("var(--cyan)","Frente (dentro)",fmt(Ri*t),`reta <b>${fmt(ch(Ri))}</b> · raio <b>${fmt(Ri)}</b>`)+
+    card("var(--green)","Linha de centro",fmt(v.r*t),`reta <b>${fmt(ch(v.r))}</b> · raio <b>${fmt(v.r)}</b>`)+
+    card("var(--magenta)","Tubo",`Ø ${fmt(v.d)}`,`costas − frente <b>${fmt(Ro*t-Ri*t)}</b>`);
   desenho(t,v.r,v.d);
 }
 
-/* ---------- Desenho 2D (vista de frente) ---------- */
+/* ---------- Desenho da curva (vista de frente: 3D ou técnico) ---------- */
+let modoDesenho="3d";
 function desenho(t,R,D){
   ultimo=[t,R,D];
   const box=$("view"); if(!box.clientWidth) return;
-  const W=box.clientWidth, H=box.clientHeight||320, pad=48;
+  const W=box.clientWidth, H=box.clientHeight||340, padX=50, padTop=54, padBot=58;
   const Ro=R+D/2, Ri=R-D/2, P=(r,f)=>[r*Math.cos(f),r*Math.sin(f)], f0=Math.PI, f1=Math.PI-t;
   const pts=[[0,0]]; for(let i=0;i<=48;i++){const f=f0-t*i/48;pts.push(P(Ro,f),P(Ri,f));}
   const xs=pts.map(p=>p[0]), ys=pts.map(p=>p[1]);
   const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
-  const k=Math.min((W-2*pad)/(maxX-minX||1),(H-2*pad)/(maxY-minY||1));
-  const ox=(W-(maxX-minX)*k)/2-minX*k, oy=(H+(maxY-minY)*k)/2+minY*k;
+  const k=Math.min((W-2*padX)/(maxX-minX||1),(H-padTop-padBot)/(maxY-minY||1));
+  const ox=(W-(maxX-minX)*k)/2-minX*k, oy=padTop+(maxY*k)+((H-padTop-padBot)-(maxY-minY)*k)/2;
   const X=p=>(ox+p[0]*k).toFixed(1), Y=p=>(oy-p[1]*k).toFixed(1), S=p=>X(p)+","+Y(p);
   const XL=p=>Math.max(58,Math.min(W-58,ox+p[0]*k)).toFixed(1);
-  const big=t>Math.PI?1:0;
-  const arc=r=>`M${S(P(r,f0))} A${(r*k).toFixed(1)},${(r*k).toFixed(1)} 0 ${big} 1 ${S(P(r,f1))}`;
+  const big=t>Math.PI?1:0, deg=t*180/Math.PI, c=[0,0], mid=f0-t/2;
+  const arc=(r,sw=1)=>`M${S(P(r,f0))} A${(r*k).toFixed(1)},${(r*k).toFixed(1)} 0 ${big} ${sw} ${S(P(r,f1))}`;
   const band=`${arc(Ro)} L${S(P(Ri,f1))} A${(Ri*k).toFixed(1)},${(Ri*k).toFixed(1)} 0 ${big} 0 ${S(P(Ri,f0))} Z`;
   const g=24; let grid="";
   for(let x=(ox%g);x<W;x+=g) grid+=`<line x1="${x.toFixed(1)}" y1="0" x2="${x.toFixed(1)}" y2="${H}"/>`;
   for(let y=(oy%g);y<H;y+=g) grid+=`<line x1="0" y1="${y.toFixed(1)}" x2="${W}" y2="${y.toFixed(1)}"/>`;
-  const c=[0,0], deg=t*180/Math.PI, ra=Math.min(Ri*0.55,(maxX-minX)*0.12)||Ri*0.5, mid=f0-t/2;
+  const txt=(p,col,size,s,xf,anchor="middle")=>`<text x="${xf?XL(p):X(p)}" y="${Y(p)}" fill="${col}" font-size="${size}" font-weight="700" font-family="IBM Plex Sans,sans-serif" text-anchor="${anchor}" dominant-baseline="middle" stroke="#1e2124" stroke-width="5" stroke-linejoin="round" paint-order="stroke">${s}</text>`;
   const lab=(r,off)=>{const p=P(r,mid);return [p[0]+Math.cos(mid)*off/k,p[1]+Math.sin(mid)*off/k]};
-  const lo=lab(Ro,26), li=lab(Ri,16), la=P(ra+15/k,mid);
-  const txt=(p,col,size,s,xf)=>`<text x="${xf?XL(p):X(p)}" y="${Y(p)}" fill="${col}" font-size="${size}" font-weight="700" font-family="IBM Plex Sans,sans-serif" text-anchor="middle" dominant-baseline="middle" stroke="#1e2124" stroke-width="5" stroke-linejoin="round" paint-order="stroke">${s}</text>`;
+  const ra=Math.min(Ri*0.55,(maxX-minX)*0.12)||Ri*0.5;
+  const lo=lab(Ro,24), li=lab(Ri,-18), la=P(ra+16/k,mid);
+  const ch=r=>2*r*Math.sin(t/2);
+
+  // cotas comuns
+  const fy=+Y(P(Ro,f0))+26; // cota do diâmetro embaixo da ponta
+  const xa=+X(P(Ro,f0)), xb=+X(P(Ri,f0));
+  const cotaD=`<g stroke="#ff3d9a" stroke-width="1.4" fill="#ff3d9a">
+      <line x1="${xa}" y1="${fy-14}" x2="${xa}" y2="${fy+4}"/><line x1="${xb}" y1="${fy-14}" x2="${xb}" y2="${fy+4}"/>
+      <line x1="${xa}" y1="${fy}" x2="${xb}" y2="${fy}"/>
+      <path d="M${xa},${fy} l8,-4 v8z"/><path d="M${xb},${fy} l-8,-4 v8z"/></g>
+      <text x="${((xa+xb)/2).toFixed(1)}" y="${fy+15}" fill="#ff3d9a" font-size="12.5" font-weight="700" font-family="IBM Plex Sans,sans-serif" text-anchor="middle">Ø ${fmt(D)}</text>`;
+  const pm=P(R,f1), pr=P(R*0.5,f1), fp=f1-Math.PI/2;
+  const rLabel=[pr[0]+Math.cos(fp)*22/k,pr[1]+Math.sin(fp)*22/k];
+  const cotaR=`<line x1="${X(c)}" y1="${Y(c)}" x2="${X(pm)}" y2="${Y(pm)}" stroke="#2ecc63" stroke-width="1.4" stroke-dasharray="6 4"/>
+      <circle cx="${X(pm)}" cy="${Y(pm)}" r="3.5" fill="#2ecc63"/>
+      ${txt(rLabel,"#2ecc63",12,"R "+fmt(R))}`;
+  const centro=`<circle cx="${X(c)}" cy="${Y(c)}" r="4" fill="#ffffff"/>
+      <line x1="${+X(c)-9}" y1="${Y(c)}" x2="${+X(c)+9}" y2="${Y(c)}" stroke="#fff" stroke-width="1.2"/>
+      <line x1="${X(c)}" y1="${+Y(c)-9}" x2="${X(c)}" y2="${+Y(c)+9}" stroke="#fff" stroke-width="1.2"/>`;
+  const angulo=`<path d="${arc(ra)}" fill="none" stroke="#ff7a1a" stroke-width="2"/>${txt(la,"#ffffff",16,fmt(deg)+"°")}`;
+
+  let corpo="";
+  if(modoDesenho==="3d"){
+    // tubo sombreado: gradiente radial a partir do centro da curva imita o cilindro
+    const r0=Ri/Ro, r1=Ro/Ro, sp=(a)=>(r0+(r1-r0)*a).toFixed(4);
+    const endCap=(f)=>{const p=P(R,f), ang=Math.atan2(-Math.sin(f),Math.cos(f))*180/Math.PI, rx=D/2*k, ry=Math.max(6,D/2*k*0.32);
+      return `<g transform="translate(${X(p)},${Y(p)}) rotate(${ang.toFixed(2)})">
+        <ellipse rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}" fill="#c9d1da" stroke="#8a939d" stroke-width="1.2"/>
+        <ellipse rx="${(rx*0.86).toFixed(1)}" ry="${(ry*0.86).toFixed(1)}" fill="url(#furo)"/></g>`;};
+    corpo=`
+      <defs>
+        <radialGradient id="tubo" gradientUnits="userSpaceOnUse" cx="${X(c)}" cy="${Y(c)}" r="${(Ro*k).toFixed(1)}">
+          <stop offset="${sp(0)}" stop-color="#4b525b"/>
+          <stop offset="${sp(.12)}" stop-color="#7d8792"/>
+          <stop offset="${sp(.34)}" stop-color="#eef2f6"/>
+          <stop offset="${sp(.5)}" stop-color="#c7cfd8"/>
+          <stop offset="${sp(.78)}" stop-color="#8b95a0"/>
+          <stop offset="${sp(1)}" stop-color="#3f454d"/>
+        </radialGradient>
+        <radialGradient id="furo" cx="50%" cy="40%" r="60%"><stop offset="0" stop-color="#0d0f11"/><stop offset="1" stop-color="#2b3036"/></radialGradient>
+        <filter id="sombra" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#000" flood-opacity=".55"/></filter>
+      </defs>
+      <path d="${band}" fill="url(#tubo)" filter="url(#sombra)"/>
+      <path d="${arc(R)}" fill="none" stroke="#ffffff" stroke-opacity=".18" stroke-width="1.2" stroke-dasharray="10 4 2 4"/>
+      ${endCap(f0)}${endCap(f1)}
+      <path d="${arc(Ro)}" fill="none" stroke="#ffd21a" stroke-width="3.5" stroke-linecap="round"/>
+      <path d="${arc(Ri)}" fill="none" stroke="#21c8ff" stroke-width="3.5" stroke-linecap="round"/>`;
+  } else {
+    corpo=`
+      <path d="${band}" fill="#ffffff" fill-opacity=".05"/>
+      <line x1="${X(P(Ro,f0))}" y1="${Y(P(Ro,f0))}" x2="${X(P(Ri,f0))}" y2="${Y(P(Ri,f0))}" stroke="#2ecc63" stroke-width="2.2"/>
+      <line x1="${X(P(Ro,f1))}" y1="${Y(P(Ro,f1))}" x2="${X(P(Ri,f1))}" y2="${Y(P(Ri,f1))}" stroke="#2ecc63" stroke-width="2.2"/>
+      <path d="${arc(R)}" fill="none" stroke="#2ecc63" stroke-opacity=".6" stroke-width="1.2" stroke-dasharray="10 4 2 4"/>
+      <line x1="${X(P(Ro,f0))}" y1="${Y(P(Ro,f0))}" x2="${X(P(Ro,f1))}" y2="${Y(P(Ro,f1))}" stroke="#ffffff" stroke-width="2"/>
+      <line x1="${X(P(Ri,f0))}" y1="${Y(P(Ri,f0))}" x2="${X(P(Ri,f1))}" y2="${Y(P(Ri,f1))}" stroke="#8f9bb0" stroke-width="2"/>
+      <path d="${arc(Ro)}" fill="none" stroke="#ffd21a" stroke-width="3.5" stroke-linecap="round"/>
+      <path d="${arc(Ri)}" fill="none" stroke="#21c8ff" stroke-width="3.5" stroke-linecap="round"/>
+      <g font-family="IBM Plex Sans,sans-serif" font-size="12" font-weight="700">
+        <rect x="10" y="10" width="160" height="44" rx="8" fill="#1e2124" fill-opacity=".9" stroke="#3a3f46"/>
+        <line x1="18" y1="24" x2="32" y2="24" stroke="#ffffff" stroke-width="2.5"/><text x="38" y="28" fill="#ffffff">reta costas ${fmt(ch(Ro))}</text>
+        <line x1="18" y1="42" x2="32" y2="42" stroke="#8f9bb0" stroke-width="2.5"/><text x="38" y="46" fill="#aeb8c9">reta frente ${fmt(ch(Ri))}</text>
+      </g>`;
+  }
   box.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Desenho da curva de ${fmt(deg)} graus">
     <rect width="${W}" height="${H}" fill="#1e2124"/>
     <g stroke="#2b2f34" stroke-width="1">${grid}</g>
-    <line x1="${X(c)}" y1="0" x2="${X(c)}" y2="${H}" stroke="#1d6b4a" stroke-width="1"/>
-    <line x1="0" y1="${Y(c)}" x2="${W}" y2="${Y(c)}" stroke="#7a2048" stroke-width="1"/>
-    <path d="${band}" fill="#ffffff" fill-opacity=".06"/>
-    <line x1="${X(P(Ro,f0))}" y1="${Y(P(Ro,f0))}" x2="${X(P(Ri,f0))}" y2="${Y(P(Ri,f0))}" stroke="#2ecc63" stroke-width="2.5"/>
-    <line x1="${X(P(Ro,f1))}" y1="${Y(P(Ro,f1))}" x2="${X(P(Ri,f1))}" y2="${Y(P(Ri,f1))}" stroke="#2ecc63" stroke-width="2.5"/>
-    <path d="${arc(ra)}" fill="none" stroke="#ff7a1a" stroke-width="1.6"/>
-    <circle cx="${X(c)}" cy="${Y(c)}" r="3" fill="#ffffff"/>
-    <line x1="${X(P(Ro,f0))}" y1="${Y(P(Ro,f0))}" x2="${X(P(Ro,f1))}" y2="${Y(P(Ro,f1))}" stroke="#ffffff" stroke-width="2.5"/>
-    <line x1="${X(P(Ri,f0))}" y1="${Y(P(Ri,f0))}" x2="${X(P(Ri,f1))}" y2="${Y(P(Ri,f1))}" stroke="#8f9bb0" stroke-width="2.5"/>
-    <path d="${arc(Ro)}" fill="none" stroke="#ffd21a" stroke-width="4" stroke-linecap="round"/>
-    <path d="${arc(Ri)}" fill="none" stroke="#21c8ff" stroke-width="4" stroke-linecap="round"/>
-    ${txt(la,"#ffffff",16,fmt(deg)+"°")}
+    <line x1="${X(c)}" y1="0" x2="${X(c)}" y2="${H}" stroke="#1d6b4a" stroke-width="1" stroke-opacity=".6"/>
+    <line x1="0" y1="${Y(c)}" x2="${W}" y2="${Y(c)}" stroke="#7a2048" stroke-width="1" stroke-opacity=".6"/>
+    ${corpo}
+    ${cotaR}${centro}${angulo}${cotaD}
     ${txt(lo,"#ffd21a",13,"costas "+fmt(Ro*t),1)}
     ${txt(li,"#21c8ff",13,"frente "+fmt(Ri*t),1)}
-    <g font-family="IBM Plex Sans,sans-serif" font-size="12" font-weight="700" fill="#d5dce8">
-      <rect x="10" y="10" width="150" height="44" rx="8" fill="#1e2124" fill-opacity=".85" stroke="#d5dce8" stroke-opacity=".5"/>
-      <line x1="18" y1="24" x2="32" y2="24" stroke="#ffffff" stroke-width="2.5"/><text x="38" y="28" fill="#ffffff">reta costas ${fmt(2*Ro*Math.sin(t/2))}</text>
-      <line x1="18" y1="42" x2="32" y2="42" stroke="#8f9bb0" stroke-width="2.5"/><text x="38" y="46" fill="#aeb8c9">reta frente ${fmt(2*Ri*Math.sin(t/2))}</text>
-    </g>
   </svg>`;
 }
+["3d","tec"].forEach(m=>$("v-"+m).addEventListener("click",()=>{modoDesenho=m;
+  $("v-3d").setAttribute("aria-pressed",m==="3d");$("v-tec").setAttribute("aria-pressed",m==="tec");if(ultimo)desenho(...ultimo)}));
 new ResizeObserver(()=>{if(ultimo)desenho(...ultimo)}).observe($("view"));
 
 /* ---------- Tabela de tubos ---------- */
