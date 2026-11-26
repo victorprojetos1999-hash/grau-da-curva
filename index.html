@@ -172,7 +172,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,td:focus-visible{o
 .gout .detail{grid-template-columns:repeat(4,1fr)}
 @media (max-width:520px){.gout .detail{grid-template-columns:1fr 1fr}}
 .tg{font-size:.7rem;text-transform:uppercase;color:var(--yellow);font-weight:700}
-@media (max-width:380px){.g3{grid-template-columns:1fr 1fr}.g3 .field:first-child{grid-column:1/-1}}
+@media (max-width:380px){.g3{grid-template-columns:1fr 1fr}.g3 .field:first-child{grid-column:1/-1}.g3 #g-esp-f{grid-column:auto}}
 
 .fields{display:flex;flex-direction:column;gap:14px}
 .pick{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px;border-radius:12px;background:var(--soft)}
@@ -295,6 +295,7 @@ h2{font-family:var(--display);font-weight:800;font-size:1.6rem;margin:0;text-tra
       </div>
       <div class="g3">
         <div class="field"><label for="g-modo">Traçar em</label><select id="g-modo"><option value="tubo">Tubo pronto</option><option value="chapa">Chapa (calandrar)</option></select></div>
+        <div class="field" id="g-od-f" hidden><label for="g-od">Ø externo da peça pronta</label><input type="number" id="g-od" inputmode="decimal" min="0" step="any"></div>
         <div class="field" id="g-esp-f" hidden><label for="g-esp">Espessura da chapa</label><input type="number" id="g-esp" inputmode="decimal" min="0" step="any" placeholder="ex.: 6,35"></div>
       </div>
       <div id="g-out" class="gout"></div>
@@ -653,7 +654,7 @@ function fitBox(pts,W,H,pad){
 var gomosOK=null;
 function gomosParams(){
   const N=parseInt($("g-n").value,10), M=+$("g-div").value, ext=Math.max(0,parseFloat(($("g-ext").value||"0").replace(",","."))||0);
-  const chapa=$("g-modo").value==="chapa"; $("g-esp-f").hidden=!chapa;
+  const chapa=$("g-modo").value==="chapa"; $("g-esp-f").hidden=!chapa;$("g-od-f").hidden=!chapa;if(document.activeElement!==$("g-od"))$("g-od").value=$("in-d").value;
   const e=chapa?Math.max(0,parseFloat(($("g-esp").value||"0").replace(",","."))||0):0;
   return {N,M,ext,e,chapa};
 }
@@ -929,6 +930,7 @@ async function exportarPdf(btn,soMolde){
     const a=document.createElement("a");a.href=url;a.download=nome;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
   }catch(e){aviso("Não consegui gerar o PDF: "+(e&&e.message||e));}
 }
+$("g-od").addEventListener("input",()=>{const x=parseFloat($("g-od").value.replace(",","."));if(x>0){$("sel-nps").value="";setVal("d",x);update();}});
 ["g-n","g-div","g-ext","g-modo","g-esp"].forEach(id=>$(id).addEventListener("input",gomosUpdate));
 $("btn-pdf").addEventListener("click",e=>exportarPdf(e.currentTarget));
 $("g-pdf").addEventListener("click",e=>exportarPdf(e.currentTarget));
