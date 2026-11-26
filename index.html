@@ -159,6 +159,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,td:focus-visible{o
 .btn-pdf{font:inherit;font-family:var(--display);font-weight:800;font-size:1.15rem;letter-spacing:.04em;text-transform:uppercase;display:flex;align-items:center;justify-content:center;gap:10px;
   padding:12px 16px;border-radius:12px;border:0;background:var(--orange);color:#fff;cursor:pointer;width:100%}
 .btn-pdf svg{width:22px;height:22px}
+.btn-pdf.alt{background:transparent;color:var(--orange-ink);border:2px solid var(--orange)}
 .btn-pdf:active{transform:translateY(1px)}
 .gomos{display:flex;flex-direction:column;gap:14px;border-top:5px solid var(--yellow)}
 .gomos h2{font-size:1.4rem}
@@ -293,7 +294,9 @@ h2{font-family:var(--display);font-weight:800;font-size:1.6rem;margin:0;text-tra
         <div class="field"><label for="g-ext">Ponta reta</label><input type="number" id="g-ext" inputmode="decimal" min="0" step="any" value="0"></div>
       </div>
       <div id="g-out" class="gout"></div>
-      <button type="button" class="btn-pdf" id="g-pdf" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l5 5v15H6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14 2v6h6M9 14h6M12 11v7M9.5 15.5 12 18l2.5-2.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>PDF com molde em tamanho real</button>
+      <button type="button" class="btn-pdf" id="g-pdf" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l5 5v15H6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14 2v6h6M9 14h6M12 11v7M9.5 15.5 12 18l2.5-2.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>PDF com planificação</button>
+      <button type="button" class="btn-pdf alt" id="g-molde" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18v12H3zM9 6v12M15 6v12M3 12h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Molde tamanho real (folhas A4)</button>
+      <p class="note" id="g-molde-info" hidden></p>
     </div>
 
     <div class="formula">
@@ -603,13 +606,15 @@ function gomosCalc(t,R,D,N,M,ext){
   for(let i=0;i<=M;i++){ // linha 1 = frente, linha M/2+1 = costas
     const ph=Math.PI+2*Math.PI*i/M, h=(R+r*Math.cos(ph))*tb;
     const tag=i===0||i===M?"frente":i===M/2?"costas":(i===M/4||i===3*M/4)?"lado":"";
-    ord.push({n:i+1,x:C*i/M,h,full:h,ponta:ext+h,tag});
+    ord.push({i,n:i+1,x:C*i/M,h,full:h,ponta:ext+h,tag});
   }
   const L=(rr)=>2*rr*tb;
   return {r,alpha,beta,tb,C,M,N,ext,ord,
     inteiro:{q:N-2,costas:L(R+r),centro:L(R),frente:L(R-r)},
     ponta:{q:2,costas:ext+(R+r)*tb,centro:ext+R*tb,frente:ext+(R-r)*tb},
-    tubo:2*(ext+R*tb)+(N-2)*L(R)};
+    tubo:2*(ext+R*tb)+(N-2)*L(R),
+    cortes:Array.from({length:N-1},(_,k)=>{const Y=ext+R*tb+k*2*R*tb, sg=k%2?-1:1;
+      return {Y,sg,alt:o=>Y+sg*r*Math.cos(Math.PI+2*Math.PI*o.i/M)*tb};})};
 }
 // Polígonos de cada peça (coordenadas do modelo, centro da curva na origem)
 function gomosPecas(t,R,D,N,ext){
@@ -646,10 +651,12 @@ function gomosUpdate(){
   const out=$("g-out"); gomosOK=null;
   if(!ultimo){out.innerHTML=`<p class="note">Preencha a curva acima primeiro.</p>`;return;}
   const [t,R,D]=ultimo, {N,M,ext}=gomosParams();
-  if(!(N>=2)){out.innerHTML=`<p class="note">Digite quantos gomos a curva vai ter (contando as 2 pontas). Ex.: curva de 90° em 4 gomos = 2 pontas + 2 gomos inteiros.</p>`;$("g-pdf").hidden=true;return;}
-  if(N>40||t/(N-1)>=Math.PI*0.9){out.innerHTML=`<p class="msg">Número de gomos fora do normal para essa curva.</p>`;$("g-pdf").hidden=true;return;}
+  if(!(N>=2)){out.innerHTML=`<p class="note">Digite quantos gomos a curva vai ter (contando as 2 pontas). Ex.: curva de 90° em 4 gomos = 2 pontas + 2 gomos inteiros.</p>`;$("g-pdf").hidden=true;$("g-molde").hidden=true;$("g-molde-info").hidden=true;return;}
+  if(N>40||t/(N-1)>=Math.PI*0.9){out.innerHTML=`<p class="msg">Número de gomos fora do normal para essa curva.</p>`;$("g-pdf").hidden=true;$("g-molde").hidden=true;$("g-molde-info").hidden=true;return;}
   const g=gomosCalc(t,R,D,N,M,ext); gomosOK={t,R,D,N,M,ext,g};
-  $("g-pdf").hidden=false;
+  $("g-pdf").hidden=false;$("g-molde").hidden=false;
+  {const fw=Math.ceil((g.C+28)/273), fh=Math.ceil((g.tubo+28)/164);$("g-molde-info").hidden=false;
+   $("g-molde-info").innerHTML=`Molde do tubo inteiro em tamanho real: <b>${fw*fh} folha${fw*fh>1?"s":""} A4</b> deitada${fw*fh>1?"s":""} (${fw} × ${fh}). Imprima em 100%, emende, enrole no tubo e risque.`;}
   const deg=x=>fmt(x*180/Math.PI)+"°";
   const stat=(k,v,hl)=>`<div class="stat${hl?" hl":""}"><div class="k">${k}</div><div class="val">${v}</div></div>`;
   const W=560,H=300, {pcs,cortes}=gomosPecas(t,R,D,N,ext);
@@ -660,24 +667,19 @@ function gomosUpdate(){
   pcs.forEach((p,i)=>{const cx=p.pts.reduce((a,q)=>a+q[0],0)/p.pts.length, cy=p.pts.reduce((a,q)=>a+q[1],0)/p.pts.length, c=F.T([cx,cy]);
     svg+=`<circle cx="${c[0].toFixed(1)}" cy="${c[1].toFixed(1)}" r="10" fill="#1e2124"/><text x="${c[0].toFixed(1)}" y="${(c[1]+4).toFixed(1)}" fill="#fff" font-size="11" font-weight="700" font-family="IBM Plex Sans,sans-serif" text-anchor="middle">${i+1}</text>`;});
   // molde (prévia) do gomo inteiro / ponta
-  const tw=560, th=150, hmax=Math.max(...g.ord.map(o=>o.h)), useFull=N>2;
-  const mh=useFull?2*hmax:ext+hmax, kk=Math.min((tw-40)/g.C,(th-40)/(mh||1));
-  const base=useFull?(th-14)/2:th-22, mx=x=>20+x*(tw-40)/g.C, my=y=>base-y*kk;
-  const top=[],bot=[];
-  for(let i=0;i<=120;i++){const ph=Math.PI+2*Math.PI*i/120, h=(R+g.r*Math.cos(ph))*g.tb, x=g.C*i/120;
-    top.push([mx(x),my(useFull?h:ext+h)]);bot.push([mx(x),my(useFull?-h:0)]);}
-  const pl=a=>a.map((p,i)=>(i?"L":"M")+p[0].toFixed(1)+","+p[1].toFixed(1)).join("");
-  let lines="";
-  g.ord.forEach(o=>{const x=mx(o.x).toFixed(1), yt=my(useFull?o.h:o.ponta), yb=my(useFull?-o.h:0);
-    lines+=`<line x1="${x}" y1="${yt.toFixed(1)}" x2="${x}" y2="${yb.toFixed(1)}" stroke="${o.tag?"#ffd21a":"#5d646c"}" stroke-width="${o.tag?1.4:1}"/>`;
-    if(o.tag&&o.n<=g.M)lines+=`<text x="${x}" y="${th-5}" fill="${o.tag==="costas"?"#ffd21a":o.tag==="frente"?"#21c8ff":"#a3a9b1"}" font-size="10" font-weight="700" font-family="IBM Plex Sans,sans-serif" text-anchor="${o.n===1?"start":"middle"}">${o.tag.toUpperCase()}</text>`;});
-  const molde=`<svg viewBox="0 0 ${tw} ${th}" class="gsvg" role="img" aria-label="Prévia do molde planificado">
-    <rect width="${tw}" height="${th}" fill="#1e2124"/>
-    <path d="${pl(top.concat(bot.slice().reverse()))}Z" fill="rgba(255,122,26,.14)"/>
-    <line x1="${mx(0)}" y1="${base}" x2="${mx(g.C)}" y2="${base}" stroke="#2ecc63" stroke-width="1.4" ${useFull?'stroke-dasharray="8 4 2 4"':""}/>
-    ${lines}
-    <path d="${pl(top)}" fill="none" stroke="#ff7a1a" stroke-width="2.2"/>${useFull?`<path d="${pl(bot)}" fill="none" stroke="#ff7a1a" stroke-width="2.2"/>`:""}</svg>`;
-  const rows=g.ord.map(o=>`<tr><td>${o.n}${o.tag?` <span class="tg">${o.tag}</span>`:""}</td><td>${fmt(o.x)}</td>${useFull?`<td>${fmt(o.full)}</td>`:""}<td>${fmt(o.ponta)}</td></tr>`).join("");
+  const H2=g.tubo, tw=560, kk=Math.min((tw-70)/g.C,560/H2), th=H2*kk+46;
+  const mx=x=>34+x*kk, my=y=>th-22-y*kk;
+  let pl="";
+  g.ord.forEach(o=>{pl+=`<line x1="${mx(o.x).toFixed(1)}" y1="${my(0).toFixed(1)}" x2="${mx(o.x).toFixed(1)}" y2="${my(H2).toFixed(1)}" stroke="${o.tag==="costas"?"#ffd21a":o.tag==="frente"?"#21c8ff":"#2ecc63"}" stroke-width="${o.tag?1.4:.9}" stroke-opacity="${o.tag?1:.7}"/>`;
+    if(o.n<=g.M)pl+=`<text x="${mx(o.x).toFixed(1)}" y="${(my(H2)-6).toFixed(1)}" fill="#a3a9b1" font-size="9" font-family="IBM Plex Sans,sans-serif" text-anchor="middle">${o.n}</text>`;
+    if(o.tag&&o.n<=g.M)pl+=`<text x="${mx(o.x).toFixed(1)}" y="${(th-6).toFixed(1)}" fill="${o.tag==="costas"?"#ffd21a":o.tag==="frente"?"#21c8ff":"#a3a9b1"}" font-size="9.5" font-weight="700" font-family="IBM Plex Sans,sans-serif" text-anchor="${o.n===1?"start":"middle"}">${o.tag.toUpperCase()}</text>`;});
+  g.cortes.forEach(c=>{let d="";for(let i=0;i<=120;i++){const o={i:i*g.M/120};d+=(i?"L":"M")+mx(g.C*i/120).toFixed(1)+","+my(c.alt(o)).toFixed(1);}pl+=`<path d="${d}" fill="none" stroke="#ff7a1a" stroke-width="2"/>`;});
+  const lim=[0].concat(g.cortes.map(c=>c.Y)).concat([H2]);
+  for(let j=0;j<N;j++)pl+=`<text x="16" y="${(my((lim[j]+lim[j+1])/2)+4).toFixed(1)}" fill="#fff" font-size="11" font-weight="700" font-family="IBM Plex Sans,sans-serif" text-anchor="middle">${j+1}</text>`;
+  const molde=`<svg viewBox="0 0 ${tw} ${th.toFixed(0)}" class="gsvg" role="img" aria-label="Planificação do tubo com os cortes">
+    <rect width="${tw}" height="${th.toFixed(0)}" fill="#1e2124"/>
+    <rect x="${mx(0)}" y="${my(H2).toFixed(1)}" width="${(g.C*kk).toFixed(1)}" height="${(H2*kk).toFixed(1)}" fill="#2a2e33" stroke="#5b8cff" stroke-width="1.4"/>${pl}</svg>`;
+  const rows=g.ord.map(o=>`<tr><td>${o.n}${o.tag?` <span class="tg">${o.tag}</span>`:""}</td><td>${fmt(o.x)}</td>${g.cortes.map(c=>`<td>${fmt(c.alt(o))}</td>`).join("")}</tr>`).join("");
   out.innerHTML=`
     <div class="detail">
       ${stat("Ângulo de cada gomo",deg(g.alpha),1)}${stat("Ângulo do corte",deg(g.beta))}
@@ -689,10 +691,10 @@ function gomosUpdate(){
       ${N>2?`<tr><td>Gomo inteiro</td><td>${N-2}</td><td>${fmt(g.inteiro.costas)}</td><td>${fmt(g.inteiro.centro)}</td><td>${fmt(g.inteiro.frente)}</td></tr>`:""}
       <tr><td>Ponta</td><td>2</td><td>${fmt(g.ponta.costas)}</td><td>${fmt(g.ponta.centro)}</td><td>${fmt(g.ponta.frente)}</td></tr>
     </tbody></table></div>
-    <div class="label">Planificação (molde ${useFull?"do gomo inteiro":"da ponta"})</div>
+    <div class="label">Planificação do tubo (todos os gomos)</div>
     ${molde}
-    <p class="note">Divida o tubo em <b>${M}</b> partes iguais de <b>${fmt(g.C/M)}</b> (perímetro ${fmt(g.C)} = π × Ø). Linha 1 na frente, linha ${M/2+1} nas costas. Marque as medidas da tabela em cada linha e una os pontos (gomo inteiro: para os dois lados do anel de centro; ponta: a partir da boca).</p>
-    <div class="tbl-wrap"><table><thead><tr><th>Linha</th><th>Na volta</th>${useFull?"<th>Gomo inteiro</th>":""}<th>Ponta</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    <p class="note">Risque um anel no esquadro na ponta do tubo (base). Divida a volta em <b>${M}</b> partes de <b>${fmt(g.C/M)}</b> (perímetro ${fmt(g.C)} = π × Ø) e risque as linhas. Em cada linha, meça <b>a partir da base</b> a altura de cada corte e una os pontos. Comprimento total do tubo: <b>${fmt(g.tubo)}</b>.</p>
+    <div class="tbl-wrap"><table><thead><tr><th>Linha</th><th>Na volta</th>${g.cortes.map((c,k)=>`<th>Corte ${k+1}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 /* ---------- Gerador de PDF (sem biblioteca) ---------- */
@@ -792,47 +794,37 @@ function pdfDesenhoCurva(d,bx,by,bw,bh,t,R,D){
   d.fill(PCOL.dim).path([[a[0],yy],[a[0]+2,yy-0.9],[a[0]+2,yy+0.9]],true,"f").path([[b[0],yy],[b[0]-2,yy-0.9],[b[0]-2,yy+0.9]],true,"f");
   d.text((a[0]+b[0])/2,yy+4.5,"Ø "+fmt(D),{size:8.5,bold:1,color:PCOL.dim,align:"center"});
 }
-function pdfMolde(d,g,R,tipo,pagina){ // molde 1:1 em folhas A4 deitadas
-  const full=tipo==="inteiro", hmax=Math.max(...g.ord.map(o=>o.h)), mg=14;
-  const Wm=g.C+2*mg, y0=full?-(hmax+mg):-mg, y1=full?hmax+mg:g.ext+hmax+mg, Hm=y1-y0;
+function pdfMolde(d,g,hoje){ // planificação do tubo inteiro em tamanho real, dividida em folhas A4 deitadas
+  const mg=14, H2=g.tubo, y0=-mg, y1=H2+mg, Wm=g.C+2*mg, Hm=y1-y0;
   const PW=297,PH=210, ax=12, ay=30, aw=PW-24, ah=PH-30-16;
   const cols=Math.ceil(Wm/aw), rows=Math.ceil(Hm/ah), tot=cols*rows;
-  const hAt=x=>{const ph=Math.PI+2*Math.PI*x/g.C;return (R+g.r*Math.cos(ph))*g.tb;};
+  const lim=[0].concat(g.cortes.map(c=>c.Y)).concat([H2]);
   for(let rj=0;rj<rows;rj++)for(let ci=0;ci<cols;ci++){
-    d.page(PW,PH); pdfHeader(d,`Molde em tamanho real · ${full?"gomo inteiro":"ponta (meio gomo)"}`,`Folha ${rj*cols+ci+1} de ${tot}`+(tot>1?` · coluna ${ci+1}, linha ${rj+1}`:""));
-    // barra de conferência 50 mm
+    d.page(PW,PH); pdfHeader(d,`Molde em tamanho real · ${g.N} gomos · tubo ${fmt(g.C)} × ${fmt(H2)}`,`Folha ${rj*cols+ci+1} de ${tot}`+(tot>1?` · coluna ${ci+1}, linha ${rj+1}`:""));
     d.stroke(PCOL.ink,0.5).line(PW-62,27,PW-12,27).line(PW-62,25.8,PW-62,28.2).line(PW-12,25.8,PW-12,28.2);
-    d.text(PW-64,28,"esta barra deve medir 50 mm →",{size:7,color:PCOL.muted,align:"right"});
-    const ox=ci*aw, oy=rj*ah; // origem da folha no molde (x a partir de -mg, y de cima para baixo a partir de y1)
-    const TX=x=>ax+(x+mg)-ox, TY=y=>ay+(y1-y)-oy;
+    d.text(PW-64,28,"esta barra deve medir 50 mm ->",{size:7,color:PCOL.muted,align:"right"});
+    const ox=ci*aw, oy=rj*ah, TX=x=>ax+(x+mg)-ox, TY=y=>ay+(y1-y)-oy;
     d.save().clip(ax,ay,aw,ah);
-    // área do gomo
-    const N=240, top=[],bot=[];
-    for(let i=0;i<=N;i++){const x=g.C*i/N,h=hAt(x);top.push([TX(x),TY(full?h:g.ext+h)]);bot.push([TX(x),TY(full?-h:0)]);}
-    d.fill("#fff1e6").path(top.concat(bot.reverse()),true,"f");
-    // linhas de divisão
-    g.ord.forEach(o=>{const yt=full?o.h:g.ext+o.h, yb=full?-o.h:0;
-      d.stroke(o.tag?PCOL.ink:"#9aa3ad",o.tag?0.4:0.25).line(TX(o.x),TY(yt+6),TX(o.x),TY(yb-(full?6:0)));
-      d.text(TX(o.x),TY(yt+8),String(o.n),{size:8,bold:1,align:"center"});
-      d.text(TX(o.x)+0.8,TY(yt)-1.5,fmt(full?o.h:o.ponta),{size:6.5,color:PCOL.muted});
-      if(o.tag)d.text(TX(o.x),TY(full?-o.h-10:-8),o.tag.toUpperCase(),{size:7,bold:1,color:o.tag==="costas"?PCOL.costas:o.tag==="frente"?PCOL.frente:PCOL.muted,align:"center"});});
-    // linha base / centro
-    if(full){d.stroke(PCOL.centro,0.4,[5,1.5,1,1.5]).line(TX(-6),TY(0),TX(g.C+6),TY(0));d.text(TX(g.C)+1,TY(0)-1,"linha de centro (esquadro)",{size:6.5,color:PCOL.centro});}
-    else {d.stroke(PCOL.centro,0.6).line(TX(-6),TY(0),TX(g.C+6),TY(0));d.text(TX(0)+2,TY(0)+4.5,"BOCA DO TUBO (esquadro)",{size:6.5,bold:1,color:PCOL.centro});}
-    d.stroke(PCOL.orange,0.6).path(top.slice(0,N+1)); if(full){const b2=[];for(let i=0;i<=N;i++){const x=g.C*i/N;b2.push([TX(x),TY(-hAt(x))]);}d.path(b2);}
-    // bordas do molde (perímetro)
-    d.stroke(PCOL.ink,0.25,[1,1]).line(TX(0),TY(y1-4),TX(0),TY(y0+4)).line(TX(g.C),TY(y1-4),TX(g.C),TY(y0+4));
+    d.fill("#f6f7f9").rect(TX(0),TY(H2),g.C,H2,"f");
+    g.ord.forEach(o=>{d.stroke(o.tag==="costas"?PCOL.costas:o.tag==="frente"?PCOL.frente:PCOL.centro,o.tag?0.45:0.25).line(TX(o.x),TY(0),TX(o.x),TY(H2));
+      d.text(TX(o.x),TY(H2)-2,String(o.n),{size:8,bold:1,align:"center"});
+      if(o.tag)d.text(TX(o.x),TY(0)+5,o.tag.toUpperCase(),{size:7,bold:1,color:o.tag==="costas"?PCOL.costas:o.tag==="frente"?PCOL.frente:PCOL.muted,align:"center"});
+      g.cortes.forEach(c=>{const y=c.alt(o);d.fill("#2f4fd8").circle(TX(o.x),TY(y),0.7,"f").text(TX(o.x)+1,TY(y)-1.2,fmt(y),{size:6,color:"#2f4fd8"});});});
+    g.cortes.forEach((c,k)=>{const pts=[];for(let i=0;i<=360;i++)pts.push([TX(g.C*i/360),TY(c.alt({i:i*g.M/360}))]);d.stroke("#2f4fd8",0.6).path(pts);
+      d.text(TX(g.C)+2,TY(c.Y)+1,"CORTE "+(k+1),{size:7,bold:1,color:"#2f4fd8"});});
+    for(let j=0;j<g.N;j++){const yy=TY((lim[j]+lim[j+1])/2);d.fill(PCOL.ink).circle(TX(0)-6,yy,3,"f").text(TX(0)-6,yy+1.2,String(j+1),{size:8,bold:1,color:"#ffffff",align:"center"});}
+    d.stroke(PCOL.ink,0.5).rect(TX(0),TY(H2),g.C,H2);
+    d.text(TX(0)+2,TY(0)+9,"BASE (anel no esquadro na ponta do tubo)",{size:6.5,bold:1,color:PCOL.centro});
     d.restore();
-    // marcas de corte / emenda da folha
     d.stroke("#9aa3ad",0.2,[1,1]).rect(ax,ay,aw,ah);
-    if(ci<cols-1)d.text(ax+aw-1,ay+ah+4,"emende com a coluna "+(ci+2)+" →",{size:7,color:PCOL.muted,align:"right"});
-    if(rj<rows-1)d.text(ax+1,ay+ah+4,"↓ emende com a linha "+(rj+2),{size:7,color:PCOL.muted});
-    d.text(PW/2,PH-5,`Imprima em tamanho real (100%, sem "ajustar à página"). Perímetro ${fmt(g.C)} · ${g.M} divisões de ${fmt(g.C/g.M)}`,{size:7,color:PCOL.muted,align:"center"});
-    pagina.n++;
+    if(ci<cols-1)d.text(ax+aw-1,ay+ah+4,"emende com a coluna "+(ci+2)+" ->",{size:7,color:PCOL.muted,align:"right"});
+    if(rj<rows-1)d.text(ax+1,ay+ah+4,"emende com a linha "+(rj+2)+" (abaixo)",{size:7,color:PCOL.muted});
+    d.text(PW/2,PH-5,`Imprima em tamanho real (100%, sem "ajustar à página"). Corte as margens, emende pelas bordas, enrole no tubo e risque.`,{size:7,color:PCOL.muted,align:"center"});
   }
 }
-function gerarPdf(){
+function gerarPdf(soMolde){
   if(!ultimo)return null;
+  if(soMolde){if(!gomosOK)return null;const d=PDFDoc();pdfMolde(d,gomosOK.g,new Date().toLocaleDateString("pt-BR"));return d.output();}
   const [t,R,D]=ultimo, Ro=R+D/2, Ri=R-D/2, deg=t*180/Math.PI, ch=r=>2*r*Math.sin(t/2);
   const gm=x=>{let g=Math.floor(x),m=Math.round((x-g)*60);if(m===60){g++;m=0;}return `${g}° ${String(m).padStart(2,"0")}'`;};
   const hoje=new Date().toLocaleDateString("pt-BR");
@@ -874,30 +866,42 @@ function gerarPdf(){
       (full?[[{t:"Gomo inteiro",b:1},String(N-2),fmt(g.inteiro.costas),fmt(g.inteiro.centro),fmt(g.inteiro.frente)]]:[]).concat([[{t:"Ponta (meio gomo)",b:1},"2",fmt(g.ponta.costas),fmt(g.ponta.centro),fmt(g.ponta.frente)]]),{rh:7,size:9.5});
     d.text(12,y2+6,"COMO RISCAR",{size:9,bold:1,color:PCOL.orange});
     const passos=[
-      `1. Risque um anel no esquadro em volta do tubo (${full?"linha de centro do gomo":"boca da ponta"}).`,
-      `2. Divida a volta do tubo em ${M} partes iguais de ${fmt(g.C/M)} (perímetro ${fmt(g.C)}) e risque as linhas no comprimento do tubo.`,
-      `3. Linha 1 fica na FRENTE (lado de dentro da curva) e a linha ${M/2+1} nas COSTAS (lado de fora).`,
-      `4. Em cada linha, marque a medida da tabela a partir do anel${full?" (para os dois lados no gomo inteiro)":""} e una os pontos com uma régua flexível.`,
-      `5. Ou imprima o molde em tamanho real (páginas seguintes), enrole no tubo e risque por ele.`];
+      `1. Pegue um tubo com ${fmt(g.tubo)} de comprimento e risque um anel no esquadro na ponta (base).`,
+      `2. Divida a volta do tubo em ${M} partes iguais de ${fmt(g.C/M)} (perímetro ${fmt(g.C)}) e risque as linhas no comprimento.`,
+      `3. Em cada linha, meça a partir da base a altura de cada corte (tabela da próxima página) e marque.`,
+      `4. Una os pontos de cada corte com uma régua flexível ou tira de chapa e corte.`,
+      `5. Na montagem, gire cada gomo meia volta (180°) em relação ao vizinho, assim as costas ficam todas do mesmo lado.`];
     passos.forEach((p,i)=>d.text(12,y2+12+i*5.2,p,{size:8.6}));
     pdfFooter(d,pg.n);
-    // tabela de ordenadas
-    pg.n++; d.page(); pdfHeader(d,"Planificação · medidas para riscar",hoje);
-    d.text(12,33,`Perímetro ${fmt(g.C)} (π × Ø) · ${M} divisões de ${fmt(g.C/M)} · medidas a partir do anel no esquadro`,{size:9});
-    const cols=[{t:"Linha",w:30,al:"l"},{t:"Posição na volta",w:46}].concat(full?[{t:"Gomo inteiro (cada lado)",w:56}]:[]).concat([{t:"Ponta (da boca)",w:54}]);
-    const rows=g.ord.map(o=>[{t:o.n+(o.tag?"  "+o.tag:""),b:!!o.tag,c:o.tag==="costas"?PCOL.costas:o.tag==="frente"?PCOL.frente:PCOL.ink},fmt(o.x)].concat(full?[{t:fmt(o.h),b:1}]:[]).concat([{t:fmt(o.ponta),b:1}]));
-    const rh=Math.min(7,(297-60)/(rows.length+1));
-    pdfTable(d,12,38,cols,rows,{rh,size:rh<6?8:9.5});
+    // planificação completa (uma folha)
+    pg.n++; d.page(); pdfHeader(d,"Planificação do tubo · medidas para riscar",hoje);
+    d.text(12,32,`Perímetro ${fmt(g.C)} (pi × Ø) · ${M} divisões de ${fmt(g.C/M)} · ${N-1} cortes · comprimento do tubo ${fmt(g.tubo)}`,{size:9,bold:1});
+    d.text(12,37,"Medidas a partir da base (anel no esquadro na ponta do tubo). Desenho fora de escala.",{size:8,color:PCOL.muted});
+    const nc=N-1, rh=Math.max(4.2,Math.min(6,150/(M+2))), tabH=(M+2)*rh+1;
+    const boxH=Math.max(60,Math.min(140,297-16-42-tabH-8)), boxY=41;
+    const H2=g.tubo, kx=Math.min(160/g.C,(boxH-16)/H2), dw=g.C*kx, dh=H2*kx, x0=12+(186-dw)/2+4, yb=boxY+boxH-8;
+    const PX=x=>x0+x*kx, PY=y=>yb-y*kx;
+    d.stroke(PCOL.line,0.3).rect(12,boxY,186,boxH);
+    d.fill("#f6f7f9").rect(PX(0),PY(H2),dw,dh,"f");
+    g.ord.forEach(o=>{d.stroke(o.tag==="costas"?PCOL.costas:o.tag==="frente"?PCOL.frente:PCOL.centro,o.tag?0.45:0.25).line(PX(o.x),PY(0),PX(o.x),PY(H2));
+      if(o.n<=M&&(M<=16||o.i%2===0))d.text(PX(o.x),PY(H2)-1.5,String(o.n),{size:6.5,color:PCOL.muted,align:"center"});});
+    d.stroke("#2f4fd8",0.5).rect(PX(0),PY(H2),dw,dh);
+    g.cortes.forEach((c,k)=>{const pts=[];for(let i=0;i<=160;i++)pts.push([PX(g.C*i/160),PY(c.alt({i:i*M/160}))]);d.stroke("#2f4fd8",0.6).path(pts);
+      d.text(PX(g.C)+1.5,PY(c.Y)+1,"C"+(k+1),{size:7,bold:1,color:"#2f4fd8"});});
+    const lim=[0].concat(g.cortes.map(c=>c.Y)).concat([H2]);
+    for(let j=0;j<N;j++){const yy=PY((lim[j]+lim[j+1])/2);d.fill(PCOL.ink).circle(PX(0)-4.5,yy,2.2,"f").text(PX(0)-4.5,yy+1,String(j+1),{size:6.5,bold:1,color:"#ffffff",align:"center"});}
+    d.text(PX(0),yb+5,"FRENTE",{size:6.5,bold:1,color:PCOL.frente,align:"center"}).text(PX(g.C/2),yb+5,"COSTAS",{size:6.5,bold:1,color:PCOL.costas,align:"center"}).text(PX(g.C),yb+5,"FRENTE",{size:6.5,bold:1,color:PCOL.frente,align:"center"});
+    const cw=Math.min(28,(186-32)/nc), cols=[{t:"Linha",w:186-cw*nc-18,al:"l"},{t:"Na volta",w:18}].concat(g.cortes.map((c,k)=>({t:(nc>8?"C":"Corte ")+(k+1),w:cw})));
+    cols[0].w=186-18-cw*nc;
+    const rows=g.ord.map(o=>[{t:o.n+(o.tag?"  "+o.tag:""),b:!!o.tag,c:o.tag==="costas"?PCOL.costas:o.tag==="frente"?PCOL.frente:PCOL.ink},fmt(o.x)].concat(g.cortes.map(c=>({t:fmt(c.alt(o)),b:1}))));
+    pdfTable(d,12,boxY+boxH+5,cols,rows,{rh,size:nc>8||rh<5?7:8.5});
     pdfFooter(d,pg.n);
-    const pp={n:pg.n};
-    if(full)pdfMolde(d,g,R,"inteiro",pp);
-    pdfMolde(d,g,R,"ponta",pp);
   }
   return d.output();
 }
-async function exportarPdf(btn){
-  const bytes=gerarPdf(); if(!bytes)return;
-  const nome=`grau-da-curva-${fmt(ultimo[0]*180/Math.PI).replace(",","_")}graus${gomosOK?`-${gomosOK.N}gomos`:""}.pdf`;
+async function exportarPdf(btn,soMolde){
+  const bytes=gerarPdf(soMolde); if(!bytes)return;
+  const nome=`${soMolde?"molde":"grau-da-curva"}-${fmt(ultimo[0]*180/Math.PI).replace(",","_")}graus${gomosOK?`-${gomosOK.N}gomos`:""}.pdf`;
   const aviso=t=>{const m=$("pdf-msg");m.textContent=t;m.hidden=!t;};
   aviso("");
   try{
@@ -911,6 +915,7 @@ async function exportarPdf(btn){
 ["g-n","g-div","g-ext"].forEach(id=>$(id).addEventListener("input",gomosUpdate));
 $("btn-pdf").addEventListener("click",e=>exportarPdf(e.currentTarget));
 $("g-pdf").addEventListener("click",e=>exportarPdf(e.currentTarget));
+$("g-molde").addEventListener("click",e=>exportarPdf(e.currentTarget,true));
 
 gomosUpdate();
 </script>
