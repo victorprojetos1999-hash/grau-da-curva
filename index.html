@@ -293,6 +293,10 @@ h2{font-family:var(--display);font-weight:800;font-size:1.6rem;margin:0;text-tra
         <div class="field"><label for="g-div">Divisões</label><select id="g-div"><option>8</option><option selected>12</option><option>16</option><option>24</option><option>32</option></select></div>
         <div class="field"><label for="g-ext">Ponta reta</label><input type="number" id="g-ext" inputmode="decimal" min="0" step="any" value="0"></div>
       </div>
+      <div class="g3">
+        <div class="field"><label for="g-modo">Traçar em</label><select id="g-modo"><option value="tubo">Tubo pronto</option><option value="chapa">Chapa (calandrar)</option></select></div>
+        <div class="field" id="g-esp-f" hidden><label for="g-esp">Espessura da chapa</label><input type="number" id="g-esp" inputmode="decimal" min="0" step="any" placeholder="ex.: 6,35"></div>
+      </div>
       <div id="g-out" class="gout"></div>
       <button type="button" class="btn-pdf" id="g-pdf" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l5 5v15H6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14 2v6h6M9 14h6M12 11v7M9.5 15.5 12 18l2.5-2.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>PDF com planificação</button>
       <button type="button" class="btn-pdf alt" id="g-molde" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18v12H3zM9 6v12M15 6v12M3 12h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Molde tamanho real (folhas A4)</button>
@@ -603,8 +607,8 @@ $("sel-nps").value="8"; $("sel-tipo").value="LR";
 update(); tabelaTubos(); tabelaCurvas();
 /* ---------- Curva em gomos (segmentada) ---------- */
 // N gomos = 2 pontas (meio gomo) + N-2 gomos inteiros; N-1 cortes.
-function gomosCalc(t,R,D,N,M,ext){
-  const r=D/2, alpha=t/(N-1), beta=alpha/2, tb=Math.tan(beta), C=Math.PI*D;
+function gomosCalc(t,R,D,N,M,ext,e){
+  const chapa=e>0, Dt=chapa?D-e:D, rp=D/2, r=Dt/2, alpha=t/(N-1), beta=alpha/2, tb=Math.tan(beta), C=Math.PI*Dt;
   const ord=[];
   for(let i=0;i<=M;i++){ // linha 1 = frente, linha M/2+1 = costas
     const ph=Math.PI+2*Math.PI*i/M, h=(R+r*Math.cos(ph))*tb;
@@ -612,9 +616,10 @@ function gomosCalc(t,R,D,N,M,ext){
     ord.push({i,n:i+1,x:C*i/M,h,full:h,ponta:ext+h,tag});
   }
   const L=(rr)=>2*rr*tb;
-  return {r,alpha,beta,tb,C,M,N,ext,ord,
-    inteiro:{q:N-2,costas:L(R+r),centro:L(R),frente:L(R-r)},
-    ponta:{q:2,costas:ext+(R+r)*tb,centro:ext+R*tb,frente:ext+(R-r)*tb},
+  return {r,alpha,beta,tb,C,M,N,ext,ord,chapa,e,Dt,
+    perim:chapa?`π × Ø médio ${fmt(Dt)}, que é ${fmt(D)} − ${fmt(e)}`:`perímetro ${fmt(C)} = π × ${fmt(D)}`,
+    inteiro:{q:N-2,costas:L(R+rp),centro:L(R),frente:L(R-rp)},
+    ponta:{q:2,costas:ext+(R+rp)*tb,centro:ext+R*tb,frente:ext+(R-rp)*tb},
     tubo:2*(ext+R*tb)+(N-2)*L(R),
     cortes:Array.from({length:N-1},(_,k)=>{const Y=ext+R*tb+k*2*R*tb, sg=k%2?-1:1;
       return {Y,sg,alt:o=>Y+sg*r*Math.cos(Math.PI+2*Math.PI*o.i/M)*tb};})};
@@ -648,18 +653,22 @@ function fitBox(pts,W,H,pad){
 var gomosOK=null;
 function gomosParams(){
   const N=parseInt($("g-n").value,10), M=+$("g-div").value, ext=Math.max(0,parseFloat(($("g-ext").value||"0").replace(",","."))||0);
-  return {N,M,ext};
+  const chapa=$("g-modo").value==="chapa"; $("g-esp-f").hidden=!chapa;
+  const e=chapa?Math.max(0,parseFloat(($("g-esp").value||"0").replace(",","."))||0):0;
+  return {N,M,ext,e,chapa};
 }
 function gomosUpdate(){
   const out=$("g-out"); gomosOK=null;
   if(!ultimo){out.innerHTML=`<p class="note">Preencha a curva acima primeiro.</p>`;return;}
-  const [t,R,D]=ultimo, {N,M,ext}=gomosParams();
+  const [t,R,D]=ultimo, {N,M,ext,e,chapa}=gomosParams();
   if(!(N>=2)){out.innerHTML=`<p class="note">Digite quantos gomos a curva vai ter (contando as 2 pontas). Ex.: curva de 90° em 4 gomos = 2 pontas + 2 gomos inteiros.</p>`;$("g-pdf").hidden=true;$("g-molde").hidden=true;$("g-molde-info").hidden=true;return;}
   if(N>40||t/(N-1)>=Math.PI*0.9){out.innerHTML=`<p class="msg">Número de gomos fora do normal para essa curva.</p>`;$("g-pdf").hidden=true;$("g-molde").hidden=true;$("g-molde-info").hidden=true;return;}
-  const g=gomosCalc(t,R,D,N,M,ext); gomosOK={t,R,D,N,M,ext,g};
+  if(chapa&&!(e>0)){out.innerHTML=`<p class="note">Digite a espessura da chapa. O diâmetro externo lá de cima é o da peça pronta.</p>`;$("g-pdf").hidden=true;$("g-molde").hidden=true;$("g-molde-info").hidden=true;return;}
+  if(e>=D/2){out.innerHTML=`<p class="msg">Espessura grande demais para esse diâmetro.</p>`;$("g-pdf").hidden=true;$("g-molde").hidden=true;$("g-molde-info").hidden=true;return;}
+  const g=gomosCalc(t,R,D,N,M,ext,e); gomosOK={t,R,D,N,M,ext,g};
   $("g-pdf").hidden=false;$("g-molde").hidden=false;
   {const fw=Math.ceil((g.C+28)/273), fh=Math.ceil((g.tubo+28)/164);$("g-molde-info").hidden=false;
-   $("g-molde-info").innerHTML=`Molde do tubo inteiro em tamanho real: <b>${fw*fh} folha${fw*fh>1?"s":""} A4</b> deitada${fw*fh>1?"s":""} (${fw} × ${fh}). Imprima em 100%, emende, enrole no tubo e risque.`;}
+   $("g-molde-info").innerHTML=`Molde ${g.chapa?"da chapa":"do tubo inteiro"} em tamanho real: <b>${fw*fh} folha${fw*fh>1?"s":""} A4</b> deitada${fw*fh>1?"s":""} (${fw} × ${fh}). Imprima em 100%, emende e ${g.chapa?"cole na chapa":"enrole no tubo"} pra riscar.`;}
   const deg=x=>fmt(x*180/Math.PI)+"°";
   const stat=(k,v,hl)=>`<div class="stat${hl?" hl":""}"><div class="k">${k}</div><div class="val">${v}</div></div>`;
   const W=560,H=300, {pcs,cortes}=gomosPecas(t,R,D,N,ext);
@@ -688,7 +697,7 @@ function gomosUpdate(){
       ${stat("Ângulo de cada gomo",deg(g.alpha),1)}${stat("Ângulo do corte",deg(g.beta))}
       ${stat("Peças",`${N}`)}${stat("Cortes",`${N-1}`)}
     </div>
-    <p class="note"><b>${N} gomos</b> = 2 pontas (meio gomo)${N>2?` + ${N-2} gomo${N>3?"s":""} inteiro${N>3?"s":""}`:""}. Tubo necessário ≈ <b>${fmt(g.tubo)}</b> na linha de centro (cortando um gomo encaixado no outro, girando 180°).</p>
+    <p class="note"><b>${N} gomos</b> = 2 pontas (meio gomo)${N>2?` + ${N-2} gomo${N>3?"s":""} inteiro${N>3?"s":""}`:""}. ${g.chapa?`Chapa de <b>${fmt(g.C)} × ${fmt(g.tubo)}</b> (largura × altura), com os gomos encaixados um no outro.`:`Tubo necessário ≈ <b>${fmt(g.tubo)}</b> na linha de centro (cortando um gomo encaixado no outro, girando 180°).`}</p>
     <svg viewBox="0 0 ${W} ${H}" class="gsvg" role="img" aria-label="Curva em gomos vista de frente"><rect width="${W}" height="${H}" fill="#1e2124"/>${svg}</svg>
     <div class="tbl-wrap"><table><thead><tr><th>Peça</th><th>Qtd</th><th>Costas</th><th>Centro</th><th>Frente</th></tr></thead><tbody>
       ${N>2?`<tr><td>Gomo inteiro</td><td>${N-2}</td><td>${fmt(g.inteiro.costas)}</td><td>${fmt(g.inteiro.centro)}</td><td>${fmt(g.inteiro.frente)}</td></tr>`:""}
@@ -696,7 +705,7 @@ function gomosUpdate(){
     </tbody></table></div>
     <div class="label">Planificação do tubo (todos os gomos)</div>
     ${molde}
-    <p class="note">Risque um anel no esquadro na ponta do tubo (base). Divida a volta em <b>${M}</b> partes de <b>${fmt(g.C/M)}</b> (perímetro ${fmt(g.C)} = π × Ø) e risque as linhas. Em cada linha, meça <b>a partir da base</b> a altura de cada corte e una os pontos. Comprimento total do tubo: <b>${fmt(g.tubo)}</b>.</p>
+    <p class="note">${g.chapa?`Na chapa: risque a base reta e divida a <b>largura de ${fmt(g.C)}</b> em <b>${M}</b> partes de <b>${fmt(g.C/M)}</b> (${g.perim}). Em cada linha, meça <b>a partir da base</b> a altura de cada corte e una os pontos. Altura total da chapa: <b>${fmt(g.tubo)}</b>. Calandre com a linha 1 (frente) na emenda.`:`Risque um anel no esquadro na ponta do tubo (base). Divida a volta em <b>${M}</b> partes de <b>${fmt(g.C/M)}</b> (${g.perim}) e risque as linhas. Em cada linha, meça <b>a partir da base</b> a altura de cada corte e una os pontos. Comprimento total do tubo: <b>${fmt(g.tubo)}</b>.`}</p>
     <div class="tbl-wrap"><table><thead><tr><th>Linha</th><th>Na volta</th>${g.cortes.map((c,k)=>`<th>Corte ${k+1}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
@@ -803,7 +812,7 @@ function pdfMolde(d,g,hoje){ // planificação do tubo inteiro em tamanho real, 
   const cols=Math.ceil(Wm/aw), rows=Math.ceil(Hm/ah), tot=cols*rows;
   const lim=[0].concat(g.cortes.map(c=>c.Y)).concat([H2]);
   for(let rj=0;rj<rows;rj++)for(let ci=0;ci<cols;ci++){
-    d.page(PW,PH); pdfHeader(d,`Molde em tamanho real · ${g.N} gomos · tubo ${fmt(g.C)} × ${fmt(H2)}`,`Folha ${rj*cols+ci+1} de ${tot}`+(tot>1?` · coluna ${ci+1}, linha ${rj+1}`:""));
+    d.page(PW,PH); pdfHeader(d,`Molde em tamanho real · ${g.N} gomos · ${g.chapa?"chapa e="+fmt(g.e):"tubo"} ${fmt(g.C)} × ${fmt(H2)}`,`Folha ${rj*cols+ci+1} de ${tot}`+(tot>1?` · coluna ${ci+1}, linha ${rj+1}`:""));
     d.stroke(PCOL.ink,0.5).line(PW-62,27,PW-12,27).line(PW-62,25.8,PW-62,28.2).line(PW-12,25.8,PW-12,28.2);
     d.text(PW-64,28,"esta barra deve medir 50 mm ->",{size:7,color:PCOL.muted,align:"right"});
     const ox=ci*aw, oy=rj*ah, TX=x=>ax+(x+mg)-ox, TY=y=>ay+(y1-y)-oy;
@@ -817,12 +826,12 @@ function pdfMolde(d,g,hoje){ // planificação do tubo inteiro em tamanho real, 
       d.text(TX(g.C)+2,TY(c.Y)+1,"CORTE "+(k+1),{size:7,bold:1,color:"#2f4fd8"});});
     for(let j=0;j<g.N;j++){const yy=TY((lim[j]+lim[j+1])/2);d.fill(PCOL.ink).circle(TX(0)-6,yy,3,"f").text(TX(0)-6,yy+1.2,String(j+1),{size:8,bold:1,color:"#ffffff",align:"center"});}
     d.stroke(PCOL.ink,0.5).rect(TX(0),TY(H2),g.C,H2);
-    d.text(TX(0)+2,TY(0)+9,"BASE (anel no esquadro na ponta do tubo)",{size:6.5,bold:1,color:PCOL.centro});
+    d.text(TX(0)+2,TY(0)+9,g.chapa?"BASE DA CHAPA":"BASE (anel no esquadro na ponta do tubo)",{size:6.5,bold:1,color:PCOL.centro});
     d.restore();
     d.stroke("#9aa3ad",0.2,[1,1]).rect(ax,ay,aw,ah);
     if(ci<cols-1)d.text(ax+aw-1,ay+ah+4,"emende com a coluna "+(ci+2)+" ->",{size:7,color:PCOL.muted,align:"right"});
     if(rj<rows-1)d.text(ax+1,ay+ah+4,"emende com a linha "+(rj+2)+" (abaixo)",{size:7,color:PCOL.muted});
-    d.text(PW/2,PH-5,`Imprima em tamanho real (100%, sem "ajustar à página"). Corte as margens, emende pelas bordas, enrole no tubo e risque.`,{size:7,color:PCOL.muted,align:"center"});
+    d.text(PW/2,PH-5,`Imprima em tamanho real (100%, sem "ajustar à página"). Corte as margens, emende pelas bordas, ${g.chapa?"cole na chapa e risque.":"enrole no tubo e risque."}`,{size:7,color:PCOL.muted,align:"center"});
   }
 }
 function gerarPdf(soMolde){
@@ -857,7 +866,7 @@ function gerarPdf(soMolde){
     st.forEach((s,i)=>{const x=12+i*47;d.fill(i===3?PCOL.orange:PCOL.soft).rect(x,32,44,18,"f");
       d.text(x+3,38,s[0].toUpperCase(),{size:6.8,bold:1,color:i===3?"#ffffff":PCOL.muted}).text(x+3,46.5,s[1],{size:14,bold:1,color:i===3?"#ffffff":PCOL.ink});});
     d.text(12,57,`${N} gomos = 2 pontas (meio gomo)${full?` + ${N-2} gomo(s) inteiro(s)`:""}. Curva de ${fmt(t*180/Math.PI)}° · R ${fmt(R)} · Ø ${fmt(D)}${ext?` · ponta reta ${fmt(ext)}`:""}.`,{size:9});
-    d.text(12,62,`Tubo necessário ≈ ${fmt(g.tubo)} (linha de centro), cortando um gomo encaixado no outro e girando 180°.`,{size:9,color:PCOL.muted});
+    d.text(12,62,g.chapa?`Chapa e=${fmt(g.e)}: ${fmt(g.C)} × ${fmt(g.tubo)} (largura × altura), largura = π × Ø médio ${fmt(g.Dt)}.`:`Tubo necessário ≈ ${fmt(g.tubo)} (linha de centro), cortando um gomo encaixado no outro e girando 180°.`,{size:9,color:PCOL.muted});
     // desenho dos gomos
     d.stroke(PCOL.line,0.3).rect(12,67,186,105);
     const {pcs,cortes}=gomosPecas(t,R,D,N,ext), F=fitBox(pcs.flatMap(p=>p.pts),186,105,10), T=p=>{const q=F.T(p);return [12+q[0],67+q[1]];};
@@ -868,7 +877,12 @@ function gerarPdf(soMolde){
     let y2=pdfTable(d,12,178,[{t:"Peça",w:58,al:"l"},{t:"Qtd",w:20},{t:"Costas",w:36},{t:"Centro",w:36},{t:"Frente",w:36}],
       (full?[[{t:"Gomo inteiro",b:1},String(N-2),fmt(g.inteiro.costas),fmt(g.inteiro.centro),fmt(g.inteiro.frente)]]:[]).concat([[{t:"Ponta (meio gomo)",b:1},"2",fmt(g.ponta.costas),fmt(g.ponta.centro),fmt(g.ponta.frente)]]),{rh:7,size:9.5});
     d.text(12,y2+6,"COMO RISCAR",{size:9,bold:1,color:PCOL.orange});
-    const passos=[
+    const passos=g.chapa?[
+      `1. Corte uma chapa de ${fmt(g.C)} de largura por ${fmt(g.tubo)} de altura (${g.perim}).`,
+      `2. Divida a largura em ${M} partes iguais de ${fmt(g.C/M)} e risque as linhas na altura da chapa.`,
+      `3. Em cada linha, meça a partir da base a altura de cada corte (tabela da próxima página) e marque.`,
+      `4. Una os pontos com uma régua flexível, corte os gomos e calandre cada um com a linha 1 (frente) na emenda.`,
+      `5. Na montagem, gire cada gomo meia volta (180°) em relação ao vizinho, assim as costas ficam todas do mesmo lado.`]:[
       `1. Pegue um tubo com ${fmt(g.tubo)} de comprimento e risque um anel no esquadro na ponta (base).`,
       `2. Divida a volta do tubo em ${M} partes iguais de ${fmt(g.C/M)} (perímetro ${fmt(g.C)}) e risque as linhas no comprimento.`,
       `3. Em cada linha, meça a partir da base a altura de cada corte (tabela da próxima página) e marque.`,
@@ -877,9 +891,9 @@ function gerarPdf(soMolde){
     passos.forEach((p,i)=>d.text(12,y2+12+i*5.2,p,{size:8.6}));
     pdfFooter(d,pg.n);
     // planificação completa (uma folha)
-    pg.n++; d.page(); pdfHeader(d,"Planificação do tubo · medidas para riscar",hoje);
-    d.text(12,32,`Perímetro ${fmt(g.C)} (pi × Ø) · ${M} divisões de ${fmt(g.C/M)} · ${N-1} cortes · comprimento do tubo ${fmt(g.tubo)}`,{size:9,bold:1});
-    d.text(12,37,"Medidas a partir da base (anel no esquadro na ponta do tubo). Desenho fora de escala.",{size:8,color:PCOL.muted});
+    pg.n++; d.page(); pdfHeader(d,g.chapa?"Planificação na chapa · medidas para riscar":"Planificação do tubo · medidas para riscar",hoje);
+    d.text(12,32,`${g.chapa?"Chapa e="+fmt(g.e)+" · largura":"Perímetro"} ${fmt(g.C)} · ${M} divisões de ${fmt(g.C/M)} · ${N-1} cortes · ${g.chapa?"altura da chapa":"comprimento do tubo"} ${fmt(g.tubo)}`,{size:9,bold:1});
+    d.text(12,37,(g.chapa?`Ø médio ${fmt(g.Dt)} (externo ${fmt(gomosOK.D)} − espessura ${fmt(g.e)}). Medidas a partir da base da chapa.`:"Medidas a partir da base (anel no esquadro na ponta do tubo).")+" Desenho fora de escala.",{size:8,color:PCOL.muted});
     const nc=N-1, rh=Math.max(4.2,Math.min(6,150/(M+2))), tabH=(M+2)*rh+1;
     const boxH=Math.max(60,Math.min(140,297-16-42-tabH-8)), boxY=41;
     const H2=g.tubo, kx=Math.min(160/g.C,(boxH-16)/H2), dw=g.C*kx, dh=H2*kx, x0=12+(186-dw)/2+4, yb=boxY+boxH-8;
@@ -915,7 +929,7 @@ async function exportarPdf(btn,soMolde){
     const a=document.createElement("a");a.href=url;a.download=nome;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
   }catch(e){aviso("Não consegui gerar o PDF: "+(e&&e.message||e));}
 }
-["g-n","g-div","g-ext"].forEach(id=>$(id).addEventListener("input",gomosUpdate));
+["g-n","g-div","g-ext","g-modo","g-esp"].forEach(id=>$(id).addEventListener("input",gomosUpdate));
 $("btn-pdf").addEventListener("click",e=>exportarPdf(e.currentTarget));
 $("g-pdf").addEventListener("click",e=>exportarPdf(e.currentTarget));
 $("g-molde").addEventListener("click",e=>exportarPdf(e.currentTarget,true));
