@@ -126,10 +126,11 @@ body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px
 .brand p{margin:4px 0 0;font-size:.86rem;line-height:1.35;opacity:.92}
 
 /* abas */
-.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:var(--card);padding:5px;border-radius:14px;border:1px solid var(--line)}
+.tabs{display:grid;grid-template-columns:repeat(4,auto);gap:6px;background:var(--card);padding:5px;border-radius:14px;border:1px solid var(--line)}
 .tabs button{font:inherit;font-family:var(--display);font-weight:800;font-size:1.05rem;letter-spacing:.03em;text-transform:uppercase;
   padding:9px 6px;border-radius:10px;border:0;background:transparent;color:var(--muted);cursor:pointer}
 .tabs button[aria-selected="true"]{background:var(--orange);color:#fff}
+@media (max-width:420px){.tabs{gap:3px;padding:4px}.tabs button{font-size:.88rem;padding:8px 4px;letter-spacing:.01em}}
 button:focus-visible,input:focus-visible,select:focus-visible,td:focus-visible{outline:3px solid var(--cyan);outline-offset:2px}
 .panel{display:flex;flex-direction:column;gap:16px}
 [hidden]{display:none!important}
@@ -172,7 +173,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,td:focus-visible{o
 .gout .detail{grid-template-columns:repeat(4,1fr)}
 @media (max-width:520px){.gout .detail{grid-template-columns:1fr 1fr}}
 .tg{font-size:.7rem;text-transform:uppercase;color:var(--yellow);font-weight:700}
-@media (max-width:380px){.g3{grid-template-columns:1fr 1fr}.g3 .field:first-child{grid-column:1/-1}.g3 #g-esp-f{grid-column:auto}}
+@media (max-width:380px){.g3{grid-template-columns:1fr 1fr}.g3 .field:first-child{grid-column:1/-1}.g3 #g-esp-f{grid-column:auto}.gcurva{grid-template-columns:repeat(3,1fr)!important;align-items:end;gap:6px}.gcurva input{padding:9px 6px!important;font-size:1rem!important}.gcurva .field:first-child{grid-column:auto!important}}
 
 .fields{display:flex;flex-direction:column;gap:14px}
 .pick{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px;border-radius:12px;background:var(--soft)}
@@ -242,6 +243,7 @@ h2{font-family:var(--display);font-weight:800;font-size:1.6rem;margin:0;text-tra
 
   <nav class="tabs" role="tablist">
     <button type="button" role="tab" id="t-calc" aria-selected="true" data-tab="calc">Calcular</button>
+    <button type="button" role="tab" id="t-gomos" aria-selected="false" data-tab="gomos">Gomos</button>
     <button type="button" role="tab" id="t-tubos" aria-selected="false" data-tab="tubos">Tubos SCH</button>
     <button type="button" role="tab" id="t-curvas" aria-selected="false" data-tab="curvas">Curvas 90°</button>
   </nav>
@@ -283,10 +285,26 @@ h2{font-family:var(--display);font-weight:800;font-size:1.6rem;margin:0;text-tra
       <div id="fields" class="fields"></div>
     </div>
 
+    <div class="formula">
+      <div class="label">Fórmula</div>
+      <p>Meça com a trena acompanhando a curva. Raio das costas = R + D/2. Raio da frente = R − D/2.</p>
+      <code>θ (graus) = medida ÷ raio do lado × 57,296</code>
+      <p>Medindo um lado, o outro sai na conta: arco do outro lado = θ × raio do outro lado. 57,296 é quantos graus tem um radiano (180 ÷ π).</p>
+    </div>
+  </section>
+
+  <!-- GOMOS -->
+  <section class="panel" id="p-gomos" role="tabpanel" hidden>
     <div class="card gomos">
       <div>
         <div class="label">Curva em gomos</div>
         <h2>Planificação para riscar no tubo</h2>
+        <p class="note">Mesmas medidas da aba Calcular: mudando aqui, muda lá também.</p>
+      </div>
+      <div class="g3 gcurva">
+        <div class="field"><label for="g-r"><span class="dot" style="background:var(--green)"></span>Raio</label><input type="number" id="g-r" inputmode="decimal" min="0" step="any"></div>
+        <div class="field"><label for="g-d"><span class="dot" style="background:var(--magenta)"></span><span id="g-d-l">Ø ext.</span></label><input type="number" id="g-d" inputmode="decimal" min="0" step="any"></div>
+        <div class="field"><label for="g-g"><span class="dot" style="background:var(--orange)"></span>Grau</label><input type="number" id="g-g" inputmode="decimal" min="0" max="360" step="any"></div>
       </div>
       <div class="g3">
         <div class="field"><label for="g-n">Nº de gomos</label><input type="number" id="g-n" inputmode="numeric" min="2" max="40" step="1" placeholder="ex.: 4"></div>
@@ -295,7 +313,6 @@ h2{font-family:var(--display);font-weight:800;font-size:1.6rem;margin:0;text-tra
       </div>
       <div class="g3">
         <div class="field"><label for="g-modo">Traçar em</label><select id="g-modo"><option value="tubo">Tubo pronto</option><option value="chapa">Chapa (calandrar)</option></select></div>
-        <div class="field" id="g-od-f" hidden><label for="g-od">Ø externo da peça pronta</label><input type="number" id="g-od" inputmode="decimal" min="0" step="any"></div>
         <div class="field" id="g-esp-f" hidden><label for="g-esp">Espessura da chapa</label><input type="number" id="g-esp" inputmode="decimal" min="0" step="any" placeholder="ex.: 6,35"></div>
       </div>
       <div id="g-out" class="gout"></div>
@@ -304,12 +321,6 @@ h2{font-family:var(--display);font-weight:800;font-size:1.6rem;margin:0;text-tra
       <p class="note" id="g-molde-info" hidden></p>
     </div>
 
-    <div class="formula">
-      <div class="label">Fórmula</div>
-      <p>Meça com a trena acompanhando a curva. Raio das costas = R + D/2. Raio da frente = R − D/2.</p>
-      <code>θ (graus) = medida ÷ raio do lado × 57,296</code>
-      <p>Medindo um lado, o outro sai na conta: arco do outro lado = θ × raio do outro lado. 57,296 é quantos graus tem um radiano (180 ÷ π).</p>
-    </div>
   </section>
 
   <!-- TUBOS SCH -->
@@ -398,8 +409,9 @@ $("markGear").setAttribute("d",gearPath(32,32,10,31,25,0));
 /* ---------- Abas ---------- */
 function abrir(tab){
   document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===tab));
-  ["calc","tubos","curvas"].forEach(t=>$("p-"+t).hidden=t!==tab);
+  ["calc","gomos","tubos","curvas"].forEach(t=>$("p-"+t).hidden=t!==tab);
   if(tab==="calc"&&ultimo)desenho(...ultimo);
+  if(tab==="gomos"&&typeof gomosUpdate==="function")gomosUpdate();
 }
 document.querySelector(".tabs").addEventListener("click",e=>{const b=e.target.closest("button");if(b)abrir(b.dataset.tab)});
 
@@ -654,13 +666,14 @@ function fitBox(pts,W,H,pad){
 var gomosOK=null;
 function gomosParams(){
   const N=parseInt($("g-n").value,10), M=+$("g-div").value, ext=Math.max(0,parseFloat(($("g-ext").value||"0").replace(",","."))||0);
-  const chapa=$("g-modo").value==="chapa"; $("g-esp-f").hidden=!chapa;$("g-od-f").hidden=!chapa;if(document.activeElement!==$("g-od"))$("g-od").value=$("in-d").value;
+  const chapa=$("g-modo").value==="chapa"; $("g-esp-f").hidden=!chapa;$("g-d-l").textContent=chapa?"Ø ext. pronto":"Ø ext.";
+  [["g-r","in-r"],["g-d","in-d"],["g-g","in-g"]].forEach(([a,b])=>{if(document.activeElement!==$(a))$(a).value=$(b).value;});
   const e=chapa?Math.max(0,parseFloat(($("g-esp").value||"0").replace(",","."))||0):0;
   return {N,M,ext,e,chapa};
 }
 function gomosUpdate(){
   const out=$("g-out"); gomosOK=null;
-  if(!ultimo){out.innerHTML=`<p class="note">Preencha a curva acima primeiro.</p>`;return;}
+  if(!ultimo){out.innerHTML=`<p class="note">Preencha o raio, o diâmetro e o grau acima.</p>`;return;}
   const [t,R,D]=ultimo, {N,M,ext,e,chapa}=gomosParams();
   if(!(N>=2)){out.innerHTML=`<p class="note">Digite quantos gomos a curva vai ter (contando as 2 pontas). Ex.: curva de 90° em 4 gomos = 2 pontas + 2 gomos inteiros.</p>`;$("g-pdf").hidden=true;$("g-molde").hidden=true;$("g-molde-info").hidden=true;return;}
   if(N>40||t/(N-1)>=Math.PI*0.9){out.innerHTML=`<p class="msg">Número de gomos fora do normal para essa curva.</p>`;$("g-pdf").hidden=true;$("g-molde").hidden=true;$("g-molde-info").hidden=true;return;}
@@ -923,24 +936,4 @@ async function exportarPdf(btn,soMolde){
   const aviso=t=>{const m=$("pdf-msg");m.textContent=t;m.hidden=!t;};
   aviso("");
   try{
-    if(window.GrauApp&&GrauApp.salvarPdf){let b="";for(let i=0;i<bytes.length;i+=8192)b+=String.fromCharCode.apply(null,bytes.subarray(i,i+8192));GrauApp.salvarPdf(nome,btoa(b));return;}
-    const dl=window.claude&&window.claude.use?await window.claude.use("downloads"):null;
-    if(dl){try{await dl.save({filename:nome,data:bytes});}catch(e){if(e&&e.code!=="declined")aviso("Não deu para salvar aqui. Abra o app no navegador ou no computador.");}return;}
-    const url=URL.createObjectURL(new Blob([bytes],{type:"application/pdf"}));
-    const a=document.createElement("a");a.href=url;a.download=nome;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
-  }catch(e){aviso("Não consegui gerar o PDF: "+(e&&e.message||e));}
-}
-$("g-od").addEventListener("input",()=>{const x=parseFloat($("g-od").value.replace(",","."));if(x>0){$("sel-nps").value="";setVal("d",x);update();}});
-["g-n","g-div","g-ext","g-modo","g-esp"].forEach(id=>$(id).addEventListener("input",gomosUpdate));
-$("btn-pdf").addEventListener("click",e=>exportarPdf(e.currentTarget));
-$("g-pdf").addEventListener("click",e=>exportarPdf(e.currentTarget));
-$("g-molde").addEventListener("click",e=>exportarPdf(e.currentTarget,true));
-
-gomosUpdate();
-</script>
-
-<script>
-if("serviceWorker" in navigator && location.protocol.startsWith("http")){navigator.serviceWorker.register("sw.js").catch(()=>{});}
-</script>
-</body>
-</html>
+    if(window.GrauApp&&GrauApp.salvarPdf){let b="";for(let i=0;i<bytes.length;i+=8192)b+=String.fromCharCode.apply(null,bytes.subarray(i,i+8192));GrauApp.salvarPdf(nome,btoa(b));r
